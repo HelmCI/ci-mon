@@ -1,0 +1,55 @@
+namespace:
+  mon:
+    manual: true
+    chart:
+      busybox:
+        smtp-mon: # smtp secret
+          deps:
+            - _smtp
+          tags: &secret
+            - secret
+        sec-mon: # oidc secret
+          tags: *secret
+        jaeger-add: &manual # node-port & PVC
+          manual: true
+          tags: &_mon
+            - _mon
+      grafana:
+        grafana:
+          dep:
+            - sec-mon     # oidc secret
+            - smtp-mon    # smtp secret
+            - prometheus  # metrics
+            - loki-stack  # logs
+            - tempo       # traces
+            - pyroscope   # profilings
+      grafana-agent: # OTLP grps collector :4317
+        grafana-agent:
+          manual: true
+          dep:
+            - tempo
+            # - jaeger
+          tags: *_mon
+      prometheus:
+        prometheus:
+      loki-stack:
+        loki-stack:
+      tempo:  # :4317
+        tempo:
+          manual: true
+          tags: *_mon
+      jaeger: # :4317
+        jaeger: 
+          manual: true
+          # dep:
+          #   - jaeger-add # node-port & PVC TODO: cyclic dependency
+          tags: *_mon
+      pyroscope:
+        pyroscope: *manual
+      # loki:
+      #   loki:
+      # promtail:
+      #   promtail:
+deps:
+  - infra # file://./../../../ci-infra/src/lib/infra.yml
+kind: lib

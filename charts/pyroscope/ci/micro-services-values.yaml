@@ -1,0 +1,67 @@
+# Default values for pyroscope.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+pyroscope:
+  components:
+    querier:
+      kind: Deployment
+      replicaCount: 3
+      resources:
+        limits:
+          memory: 1Gi
+        requests:
+          memory: 32Mi
+          cpu: 10m
+    query-frontend:
+      kind: Deployment
+      replicaCount: 2
+      resources:
+        limits:
+          memory: 1Gi
+        requests:
+          memory: 32Mi
+          cpu: 10m
+    query-scheduler:
+      kind: Deployment
+      replicaCount: 2
+      resources:
+        limits:
+          memory: 1Gi
+        requests:
+          memory: 32Mi
+          cpu: 10m
+    distributor:
+      kind: Deployment
+      replicaCount: 2
+      resources:
+        limits:
+          memory: 1Gi
+        requests:
+          memory: 32Mi
+          cpu: 50m
+    ingester:
+      kind: StatefulSet
+      replicaCount: 3
+      resources:
+        limits:
+          memory: 4Gi
+        requests:
+          memory: 256Mi
+          cpu: 100m
+    store-gateway:
+      kind: StatefulSet
+      replicaCount: 3
+      persistence:
+      # The store-gateway needs not need persistent storage, but we still run it as a StatefulSet
+      # This is to avoid having blocks of data being
+        enabled: false
+      resources:
+        limits:
+          memory: 4Gi
+        requests:
+          memory: 64Mi
+          cpu: 20m
+
+minio:
+  enabled: true

@@ -1,0 +1,15 @@
+kind: context
+deps:
+  - system
+  - infra
+  - local
+  - mon
+  - mon-online
+  - mon-sentry
+store:
+  grafana:
+    password: pass
+#   smtp:
+#     host: smtp.example.com:587
+#     from_address:	from@example.com
+#     password: password

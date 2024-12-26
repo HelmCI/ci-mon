@@ -1,0 +1,9 @@
+namespace:
+  mon:
+    chart:
+      metrics-server:
+        metrics-server:
+          manual: true
+deps:
+  - infra # file://./../../../ci-infra/src/lib/infra.yml
+kind: lib

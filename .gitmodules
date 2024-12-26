@@ -1,0 +1,6 @@
+[submodule "ci"]
+	path = ci
+	url = ../ci.git
+[submodule "ci-infra"]
+	path = ci-infra
+	url = ../ci-infra.git

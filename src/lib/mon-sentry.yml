@@ -1,0 +1,23 @@
+namespace:
+  mon-sentry:
+    manual: true
+    chart:
+      busybox:
+        db-sentry:
+          deps:
+            - _db
+          tags: &sentry
+            - sentry
+        sentry-api:
+          tags: *sentry
+      sentry:
+        sentry:
+          store:
+            # hostname: sentry
+            url: http://localhost:30001
+            port: 30001
+            # host: k3d-local-server-0
+            # init: true # or I=1
+deps:
+  - infra # file://./../../../ci-infra/src/lib/infra.yml
+kind: lib

@@ -1,0 +1,52 @@
+{{- $global := . }}
+{{- range $component, $cfg := (fromYaml (include "pyroscope.components" .)) }}
+{{- with $global }}
+{{-  $values := mustMergeOverwrite (deepCopy .Values.pyroscope ) ($cfg | default dict)}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $cfg.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pyroscope.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ $component | quote }}
+  {{- if $values.service.annotations }}
+  annotations:
+    {{- toYaml $values.service.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $values.service.type }}
+  ports:
+    - port: {{ $values.service.port }}
+      targetPort: {{ $values.service.port_name }}
+      protocol: TCP
+      name: {{ $values.service.port_name }}
+  selector:
+    {{- include "pyroscope.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ $component | quote }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $cfg.name }}-headless
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pyroscope.labels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ $component | quote }}
+    {{- if .Values.serviceMonitor.enabled }}
+    prometheus.io/service-monitor: "false"
+    {{- end }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: {{ $values.service.port }}
+      targetPort: {{ $values.service.port_name }}
+      protocol: TCP
+      name: {{ $values.service.port_name }}
+  selector:
+    {{- include "pyroscope.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: {{ $component | quote }}
+{{- end }}
+{{- end }}

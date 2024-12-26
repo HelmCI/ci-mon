@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: v0.36.2
+description: Grafana Agent
+name: grafana-agent
+type: application
+version: 0.25.0

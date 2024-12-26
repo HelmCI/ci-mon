@@ -1,0 +1,10 @@
+namespace:
+  mon:
+    chart:
+      grafana:
+        grafana:
+          store:
+            enableDownload: true
+deps:
+  - mon # file://./mon.yml
+kind: lib
