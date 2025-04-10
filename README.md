@@ -21,6 +21,7 @@ make test_up_loki         # 1.5m
 make test_up_pyroscope    # 14.5s
 make test_up_jaeger       # 18.5s
 make test_up_grafana      # 37.6s
+make test_up_homer
 ```
 
 ## docs
@@ -30,6 +31,7 @@ make test_up_grafana      # 37.6s
 - [jaeger](src/lib/jaeger/jaeger.md)
 - [pyroscope](src/lib/pyroscope/pyroscope.md)
 - [sentry](src/lib/sentry/sentry.md)
+- [homer](src/dc/homer/README.md)
 
 ## values template
 

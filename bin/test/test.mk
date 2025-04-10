@@ -20,8 +20,11 @@ test_up_pyroscope:
 test_up_jaeger:
 	helmwave up -t jaeger-add,jaeger
 test_up_grafana:
-	helmwave up -t sec-mon,grafana 
+	helmwave up -t sec-mon,grafana
 
 test_metrics_server_top:
 	kubectl top node
 	kubectl top pod -A
+
+test_up_homer: homer_up_dc
+	helmwave up -t homer,homer_test

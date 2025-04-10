@@ -1,0 +1,26 @@
+.z:
+  disable: &disable
+    manual: true
+    dep:
+    tags:
+      - homer_test
+namespace:
+  homer:
+    compose:
+      pvc: true
+      # hostPath: true
+    chart:
+      busybox:
+        secrets:
+      app:
+        grafana:
+          # v: 10.4.3
+          store:
+            # image:
+            #   repo: grafana/grafana-oss
+            env:
+              GF_SECURITY_ADMIN_USER: admin
+            secret:
+              GF_SECURITY_ADMIN_PASSWORD: ADMIN_PASSWORD
+        hepgen: *disable
+        hepgen-bad: *disable

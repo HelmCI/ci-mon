@@ -6,6 +6,8 @@ deps:
   - mon
   - mon-online
   - mon-sentry
+  - mon-homer
+  # - demo-wp
 store:
   grafana:
     password: pass
