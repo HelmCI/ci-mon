@@ -15,12 +15,19 @@ namespace:
       app:
         grafana:
           # v: 10.4.3
+          # deps:
+          #   - _api
           store:
+            # route: /homer/(.*)
             # image:
             #   repo: grafana/grafana-oss
             env:
               GF_SECURITY_ADMIN_USER: admin
             secret:
               GF_SECURITY_ADMIN_PASSWORD: ADMIN_PASSWORD
+            ports:
+              - port: 3000
+                targetPort: 3000
+                nodePort: 30000
         hepgen: *disable
         hepgen-bad: *disable
