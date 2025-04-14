@@ -3,8 +3,8 @@
 {{- $r    := $s.registry }}
 
 {{- $repo := print $r.hostProxy "/" }}
-{{- $k8s   := print $repo $r.proxy.k8s }}
-{{- $quay  := print $repo $r.proxy.quay "/prometheus" }}
+{{- $k8s   := print $repo $r.proxy.registry_k8s_io }}
+{{- $quay  := print $repo $r.proxy.quay_io "/prometheus" }}
 
 {{- with $r.hostProxy }}
 server:

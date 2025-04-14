@@ -6,7 +6,7 @@ image:
   registry: {{ . }}/{{ $r.proxy.docker }}
 configReloader:
   image:
-    registry: {{ . }}/{{ $r.proxy.ghcr }}
+    registry: {{ . }}/{{ $r.proxy.ghcr_io }}
 {{- end }}
 
 agent:

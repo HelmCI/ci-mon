@@ -2,7 +2,7 @@
 {{- $r := .Release.Store.registry }}
 {{- with $r.hostProxy }}
 image:
-  repository: {{ . }}/{{ $r.proxy.k8s }}/metrics-server/metrics-server
+  repository: {{ . }}/{{ $r.proxy.registry_k8s_io }}/metrics-server/metrics-server
 imagePullSecrets: 
   - name: imagepullsecret-patcher
 {{- end }}
