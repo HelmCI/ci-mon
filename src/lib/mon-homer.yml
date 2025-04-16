@@ -38,7 +38,7 @@ namespace:
           v: 1.59.9
         hepgen:     *homer_test
         hepgen-bad: *homer_test
-        vector:     *homer_add
+        # vector:     *homer_add
         alertman:   *homer_add
         node-exporter:  
           <<: *homer_add
