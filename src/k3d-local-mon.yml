@@ -7,6 +7,7 @@ deps:
   - mon-online
   - mon-sentry
   - mon-homer
+  - mon-homer7
   # - demo-wp
 store:
   grafana:

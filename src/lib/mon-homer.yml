@@ -4,6 +4,9 @@
     dep:
     tags:
       - homer_test
+    # store:
+    #   env:
+    #     HEP_SERVER: homer-server.homer7
   homer_add: &homer_add
     <<: *homer_test
     tags:

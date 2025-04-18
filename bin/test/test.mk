@@ -28,3 +28,5 @@ test_metrics_server_top:
 
 test_up_homer: homer_up_dc
 	helmwave up -t homer,homer_test
+test_up_homer7:
+	helmwave up -t homer7

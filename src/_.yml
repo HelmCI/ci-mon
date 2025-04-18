@@ -1,7 +1,11 @@
 kind: all
 store:
-  secrets: # need move to .env.yml
-    homer: # = NS
+  db:
+    postgres: &db pass
+  secrets: # by NS: need move to .env.yml
+    homer7:
+      DB_PASS: *db
+    homer:
       ADMIN_PASSWORD: admin
     demo-wp:
       MYSQL_PASSWORD: examplepass

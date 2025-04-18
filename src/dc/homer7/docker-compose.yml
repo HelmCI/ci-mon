@@ -1,0 +1,49 @@
+# https://github.com/sipcapture/homer7-docker/blob/7.7/heplify-server/hom7-prom-all/docker-compose.yml
+version: '2.3'
+services:
+  homer-server: # https://github.com/sipcapture/heplify-server
+    command:
+    - ./heplify-server
+    image: sipcapture/heplify-server
+    ports:
+    - 9060:9060/tcp
+    - 9060:9060/udp
+    - 9096:9096/tcp
+    environment:
+      # HEPLIFYSERVER_HEPTCPADDR:
+      HEPLIFYSERVER_HEPTLSADDR: 0.0.0.0:9060
+      HEPLIFYSERVER_HEPADDR:    0.0.0.0:9060
+      HEPLIFYSERVER_PROMADDR:   0.0.0.0:9096
+      HEPLIFYSERVER_DEDUP: false
+      HEPLIFYSERVER_LOGSTD: true
+      HEPLIFYSERVER_DBMAXSIZE: 30GB
+      HEPLIFYSERVER_DBSHEMA: homer7
+      HEPLIFYSERVER_DBDRIVER: postgres
+      HEPLIFYSERVER_DBCONFTABLE: homer_config
+      HEPLIFYSERVER_DBDATATABLE: homer_data
+      HEPLIFYSERVER_DBADDR: sql-homer:5432
+      HEPLIFYSERVER_DBUSER: &DBUSER postgres
+      # HEPLIFYSERVER_DBPASS:
+      # HEPLIFYSERVER_DBDROPDAYS: 30
+      # HEPLIFYSERVER_LOGLVL: info
+      # HEPLIFYSERVER_LOKIURL: http://loki:3100/api/prom/push
+      # HEPLIFYSERVER_LOKITIMER: 2
+    # restart: always
+    # volumes:
+    # - /etc/timezone:/etc/timezone:ro
+    # - /etc/localtime:/etc/localtime:ro
+  homer-webapp: # https://github.com/sipcapture/homer-app
+    image: sipcapture/webapp
+    ports:
+    - 30007:30007/tcp
+    environment:
+      HTTP_PORT: 30007
+      DB_HOST: sql-homer
+      DB_USER: *DBUSER
+      # DB_PASS:
+      # PROM_HOST: prometheus-server.mon
+    # restart: always
+    # volumes:
+    # - /etc/timezone:/etc/timezone:ro
+    # - /etc/localtime:/etc/localtime:ro
+    # - ./webapp.json:/usr/local/homer/etc/webapp_config.json:rw

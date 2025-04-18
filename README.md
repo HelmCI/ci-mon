@@ -3,7 +3,7 @@
 Base on [core](https://github.com/HelmCI/ci) ["sub"](ci/README.md) module with [helmwave](https://github.com/helmwave/helmwave) [engine](https://github.com/HelmCI/ci/blob/main/helmwave/helmwave.tpl). And use dependencies:
 - module [**ci-infra**](https://github.com/HelmCI/ci-infra) - ["base Infrastructure"](ci-infra/README.md)
 
-## quick start 
+## quick start
 
 ```sh
 brew install make git
@@ -23,6 +23,7 @@ make test_up_pyroscope    # 14.5s
 make test_up_jaeger       # 18.5s
 make test_up_grafana      # 37.6s
 make test_up_homer
+make test_up_homer7
 ```
 
 ## docs
@@ -33,6 +34,7 @@ make test_up_homer
 - [pyroscope](src/lib/pyroscope/pyroscope.md)
 - [sentry](src/lib/sentry/sentry.md)
 - [homer](src/dc/homer/README.md)
+- [homer7](src/dc/homer7/homer7.md)
 
 ## values template
 

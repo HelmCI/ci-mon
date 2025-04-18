@@ -1,0 +1,52 @@
+.yml:
+  - &v17 17.4.0-debian-12-r16
+namespace:
+  homer7:
+    compose:
+      # node: k3d-local-mon-server-0
+    chart:
+      busybox:
+        secrets:
+          tags: &secret
+            - secret
+        secret-db:
+          base: _db
+          tags: *secret
+      app:
+        homer-webapp:
+          dep: &dep
+            - secrets
+            - sql-homer
+          store:
+            secret:
+              DB_PASS: &DB_PASS DB_PASS
+            ports:
+              - port: &port 30007
+                targetPort: *port
+                nodePort: *port
+            # env:
+            #   DB_HOST: sql-homer
+            #   # DB_USER: &DB_USER postgres
+          v: latest@sha256:e34fa9a3461e6cad693a2503fb569bff952f91a4fc49e8fc0f0d5cf4c10e850b
+        homer-server:
+          dep: *dep
+          store:
+            secret:
+              HEPLIFYSERVER_DBPASS: *DB_PASS
+            # env:
+            #   HEPLIFYSERVER_DBADDR: sql-homer:5432
+            #   # HEPLIFYSERVER_DBUSER: *DB_USER
+          v: latest@sha256:ab0cfcc929d0844a889ed1c16662e0a3fe120aaa974909970acd54da5a76e043
+      postgresql:
+        sql-homer:
+          dep:
+            - secret-db
+          base: postgresql
+          manual: true
+          tags: [sql]
+          store:
+            write:
+              create: true
+              port: 30107
+              # host: k3d-local-mon-server-0
+          v: *v17
