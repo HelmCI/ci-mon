@@ -7,6 +7,17 @@ Expand the name of the chart.
 {{- end }}
 
 {{/*
+Namespace to set on the resources
+*/}}
+{{- define "prometheus-pushgateway.namespace" -}}
+  {{- if .Values.namespaceOverride -}}
+    {{- .Values.namespaceOverride -}}
+  {{- else -}}
+    {{- .Release.Namespace -}}
+  {{- end -}}
+{{- end -}}
+
+{{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
@@ -83,7 +94,7 @@ Define PDB apiVersion
 {{- if $.Capabilities.APIVersions.Has "policy/v1/PodDisruptionBudget" }}
 {{- print "policy/v1" }}
 {{- else }}
-{{- print "policy/v1beta" }}
+{{- print "policy/v1beta1" }}
 {{- end }}
 {{- end }}
 
@@ -101,12 +112,48 @@ Define Ingress apiVersion
 {{- end }}
 
 {{/*
+Define webConfiguration
+*/}}
+{{- define "prometheus-pushgateway.webConfiguration" -}}
+basic_auth_users:
+{{- range $k, $v := .Values.webConfiguration.basicAuthUsers }}
+  {{ $k }}: {{ htpasswd "" $v | trimPrefix ":"}}
+{{- end }}
+{{- end }}
+
+{{/*
+Define Authorization
+*/}}
+{{- define "prometheus-pushgateway.Authorization" -}}
+{{- $users := keys .Values.webConfiguration.basicAuthUsers }}
+{{- $user := first $users }}
+{{- $password := index .Values.webConfiguration.basicAuthUsers $user }}
+{{- $user }}:{{ $password }}
+{{- end }}
+
+{{/*
+Define basicAuth
+*/}}
+{{- define "prometheus-pushgateway.basicAuth" -}}
+{{- $users := keys .Values.webConfiguration.basicAuthUsers }}
+{{- $user := first $users }}
+{{- $password := index .Values.webConfiguration.basicAuthUsers $user -}}
+user: {{ $user | b64enc | quote }}
+password: {{ $password | b64enc | quote }}
+{{- end }}
+
+{{/*
 Returns pod spec
 */}}
 {{- define "prometheus-pushgateway.podSpec" -}}
 serviceAccountName: {{ include "prometheus-pushgateway.serviceAccountName" . }}
+automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
 {{- with .Values.priorityClassName }}
 priorityClassName: {{ . | quote }}
+{{- end }}
+{{- with .Values.hostAliases }}
+hostAliases:
+{{- toYaml . | nindent 2 }}
 {{- end }}
 {{- with .Values.imagePullSecrets }}
 imagePullSecrets:
@@ -127,21 +174,58 @@ containers:
     env:
       {{- toYaml . | nindent 6 }}
     {{- end }}
-    {{- with .Values.extraArgs }}
+    {{- if or .Values.extraArgs .Values.webConfiguration }}
     args:
+    {{- with .Values.extraArgs }}
       {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- if .Values.webConfiguration }}
+      - --web.config.file=/etc/config/web-config.yaml
+    {{- end }}
     {{- end }}
     ports:
       - name: metrics
         containerPort: 9091
         protocol: TCP
     {{- if .Values.liveness.enabled }}
+    {{- $livenessCommon := omit .Values.liveness.probe "httpGet" }}
     livenessProbe:
-      {{- toYaml .Values.liveness.probe | nindent 6 }}
+    {{- with .Values.liveness.probe }}
+      httpGet:
+        path: {{ .httpGet.path }}
+        port: {{ .httpGet.port }}
+        {{- if or .httpGet.httpHeaders $.Values.webConfiguration.basicAuthUsers }}
+        httpHeaders:
+        {{- if $.Values.webConfiguration.basicAuthUsers }}
+          - name: Authorization
+            value: Basic {{ include "prometheus-pushgateway.Authorization" $ | b64enc }}
+        {{- end }}
+        {{- with .httpGet.httpHeaders }}
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- end }}
+        {{- toYaml $livenessCommon | nindent 6 }}
+      {{- end }}
     {{- end }}
     {{- if .Values.readiness.enabled }}
+    {{- $readinessCommon := omit .Values.readiness.probe "httpGet" }}
     readinessProbe:
-      {{- toYaml .Values.readiness.probe | nindent 6 }}
+    {{- with .Values.readiness.probe }}
+      httpGet:
+        path: {{ .httpGet.path }}
+        port: {{ .httpGet.port }}
+        {{- if or .httpGet.httpHeaders $.Values.webConfiguration.basicAuthUsers }}
+        httpHeaders:
+        {{- if $.Values.webConfiguration.basicAuthUsers }}
+          - name: Authorization
+            value: Basic {{ include "prometheus-pushgateway.Authorization" $ | b64enc }}
+        {{- end }}
+        {{- with .httpGet.httpHeaders }}
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- end }}
+        {{- toYaml $readinessCommon | nindent 6 }}
+      {{- end }}
     {{- end }}
     {{- with .Values.resources }}
     resources:
@@ -151,10 +235,17 @@ containers:
     securityContext:
       {{- toYaml . | nindent 6 }}
     {{- end }}
+    {{- with .Values.lifecycle }}
+    lifecycle: {{ toYaml . | nindent 6 }}
+    {{- end }}
     volumeMounts:
       - name: storage-volume
         mountPath: "{{ .Values.persistentVolume.mountPath }}"
         subPath: "{{ .Values.persistentVolume.subPath }}"
+      {{- if .Values.webConfiguration }}
+      - name: web-config
+        mountPath: "/etc/config"
+      {{- end }}
       {{- with .Values.extraVolumeMounts }}
       {{- toYaml . | nindent 6 }}
       {{- end }}
@@ -166,10 +257,29 @@ nodeSelector:
 tolerations:
   {{- toYaml . | nindent 2 }}
 {{- end }}
-{{- with .Values.affinity }}
+{{- if or .Values.podAntiAffinity .Values.affinity }}
 affinity:
-  {{- toYaml . | nindent 2 }}
 {{- end }}
+  {{- with .Values.affinity }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+  {{- if eq .Values.podAntiAffinity "hard" }}
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: {{ .Values.podAntiAffinityTopologyKey }}
+        labelSelector:
+          matchExpressions:
+            - {key: app.kubernetes.io/name, operator: In, values: [{{ include "prometheus-pushgateway.name" . }}]}
+  {{- else if eq .Values.podAntiAffinity "soft" }}
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: {{ .Values.podAntiAffinityTopologyKey }}
+          labelSelector:
+            matchExpressions:
+              - {key: app.kubernetes.io/name, operator: In, values: [{{ include "prometheus-pushgateway.name" . }}]}
+  {{- end }}
 {{- with .Values.topologySpreadConstraints }}
 topologySpreadConstraints:
   {{- toYaml . | nindent 2 }}
@@ -188,10 +298,21 @@ volumes:
   {{- else }}
     emptyDir: {}
   {{- end }}
+  {{- if .Values.webConfiguration }}
+  - name: web-config
+    secret:
+      secretName: {{ include "prometheus-pushgateway.fullname" . }}
+  {{- end }}
   {{- end }}
   {{- if .Values.extraVolumes }}
   {{- toYaml .Values.extraVolumes  | nindent 2 }}
   {{- else if $storageVolumeAsPVCTemplate }}
+  {{- if .Values.webConfiguration }}
+  - name: web-config
+    secret:
+      secretName: {{ include "prometheus-pushgateway.fullname" . }}
+  {{- else }}
   []
+  {{- end }}
   {{- end }}
 {{- end }}

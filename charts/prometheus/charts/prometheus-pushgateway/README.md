@@ -1,18 +1,18 @@
 # Prometheus Pushgateway
 
-This chart bootstraps a prometheus [pushgateway](http://github.com/prometheus/pushgateway) deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
+This chart bootstraps a Prometheus [Pushgateway](http://github.com/prometheus/pushgateway) deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
 
-An optional prometheus `ServiceMonitor` can be enabled, should you wish to use this gateway with a [Prometheus Operator](https://github.com/coreos/prometheus-operator).
+An optional prometheus `ServiceMonitor` can be enabled, should you wish to use this gateway with [Prometheus Operator](https://github.com/coreos/prometheus-operator).
 
 ## Get Repository Info
-
+<!-- textlint-disable terminology -->
 ```console
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 ```
 
-_See [`helm repo`](https://helm.sh/docs/helm/helm_repo/) for command documentation._
-
+_See [helm repo](https://helm.sh/docs/helm/helm_repo/) for command documentation._
+<!-- textlint-enable -->
 ## Install Chart
 
 ```console
@@ -36,10 +36,23 @@ _See [helm uninstall](https://helm.sh/docs/helm/helm_uninstall/) for command doc
 ## Upgrading Chart
 
 ```console
-helm upgrade [RELEASE_NAME] [CHART] --install
+helm upgrade [RELEASE_NAME] prometheus-community/prometheus-pushgateway --install
 ```
 
 _See [helm upgrade](https://helm.sh/docs/helm/helm_upgrade/) for command documentation._
+
+### To 3.0.0
+
+Previously, as dynamic labels were also set on the statefulset's volume claim template, it was not possible
+to upgrade a chart release in a usual manner whilst using a statefulset and persistence due to the volume claim template's fields being immutable.
+
+This release removes the dynamic labels from the statefulset's volume claim template.
+If you have configured a statefulset with persistent storage,
+please, delete the statefulset before upgrading:
+
+```console
+kubectl delete sts -l app.kubernetes.io/name=prometheus-pushgateway --cascade=orphan
+```
 
 ### To 2.0.0
 

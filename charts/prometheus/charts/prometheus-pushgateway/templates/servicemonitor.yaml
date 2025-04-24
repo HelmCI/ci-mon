@@ -8,17 +8,26 @@ metadata:
     {{- toYaml .Values.serviceMonitor.additionalLabels | nindent 4 }}
     {{- end }}
   name: {{ include "prometheus-pushgateway.fullname" .  }}
-  {{- with .Values.serviceMonitor.namespace }}
-  namespace: {{ . }}
-  {{- end }}
+  namespace: {{ default (include "prometheus-pushgateway.namespace" .) .Values.serviceMonitor.namespace }}
 spec:
   endpoints:
-  - port: http
+  - port: {{ .Values.service.portName }}
     {{- with .Values.serviceMonitor.interval }}
     interval: {{ . }}
     {{- end }}
     {{- with .Values.serviceMonitor.scheme }}
     scheme: {{ . }}
+    {{- end }}
+    {{- if and .Values.webConfiguration (empty .Values.serviceMonitor.basicAuth) }}
+    basicAuth:
+      password:
+        name: {{ include "prometheus-pushgateway.fullname" . }}-basic-auth
+        key: password
+      username:
+        name: {{ include "prometheus-pushgateway.fullname" . }}-basic-auth
+        key: user
+    {{- else if not (empty .Values.serviceMonitor.basicAuth) }}
+    basicAuth: {{ toYaml .Values.serviceMonitor.basicAuth | nindent 6 }}
     {{- end }}
     {{- with .Values.serviceMonitor.bearerTokenFile }}
     bearerTokenFile: {{ . }}
@@ -30,11 +39,11 @@ spec:
     {{- with .Values.serviceMonitor.scrapeTimeout }}
     scrapeTimeout: {{ . }}
     {{- end }}
-    path: /metrics
+    path: {{ .Values.serviceMonitor.telemetryPath }}
     honorLabels: {{ .Values.serviceMonitor.honorLabels }}
     {{- with .Values.serviceMonitor.metricRelabelings }}
     metricRelabelings:
-      {{- tpl (toYaml . | nindent 6) . }}
+      {{- tpl (toYaml . | nindent 6) $ }}
     {{- end }}
     {{- with .Values.serviceMonitor.relabelings }}
     relabelings:
@@ -42,7 +51,7 @@ spec:
     {{- end }}
   namespaceSelector:
     matchNames:
-      - {{ .Release.Namespace }}
+      - {{ template "prometheus-pushgateway.namespace" . }}
   selector:
     matchLabels:
       {{- include "prometheus-pushgateway.selectorLabels" . | nindent 6 }}

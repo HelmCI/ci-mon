@@ -9,8 +9,11 @@ metadata:
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
+  namespace: {{ include "alertmanager.namespace" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:
     matchLabels:
       {{- include "alertmanager.selectorLabels" . | nindent 6 }}
@@ -47,6 +50,9 @@ spec:
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.schedulerName }}
+      schedulerName: {{ . }}
       {{- end }}
       {{- if or .Values.podAntiAffinity .Values.affinity }}
       affinity:
@@ -93,18 +99,38 @@ spec:
         - name: {{ .Chart.Name }}-{{ .Values.configmapReload.name }}
           image: "{{ .Values.configmapReload.image.repository }}:{{ .Values.configmapReload.image.tag }}"
           imagePullPolicy: "{{ .Values.configmapReload.image.pullPolicy }}"
+          {{- with .Values.configmapReload.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           args:
-            - --volume-dir=/etc/alertmanager
-            - --webhook-url=http://127.0.0.1:9093/-/reload
+            {{- if and (hasKey .Values.configmapReload.extraArgs "config-file" | not) (hasKey .Values.configmapReload.extraArgs "watched-dir" | not)  }}
+            - --watched-dir=/etc/alertmanager
+            {{- end }}
+            {{- if not (hasKey .Values.configmapReload.extraArgs "reload-url") }}
+            - --reload-url=http://127.0.0.1:9093/-/reload
+            {{- end }}
+            {{- range $key, $value := .Values.configmapReload.extraArgs }}
+            - --{{ $key }}={{ $value }}
+            {{- end }}
           resources:
             {{- toYaml .Values.configmapReload.resources | nindent 12 }}
           {{- with .Values.configmapReload.containerPort }}
           ports:
             - containerPort: {{ . }}
           {{- end }}
+          {{- with .Values.configmapReload.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
+            {{- if .Values.config.enabled }}
             - name: config
               mountPath: /etc/alertmanager
+            {{- end }}
+            {{- if .Values.configmapReload.extraVolumeMounts }}
+            {{- toYaml .Values.configmapReload.extraVolumeMounts | nindent 12 }}
+            {{- end }}
         {{- end }}
         - name: {{ .Chart.Name }}
           securityContext:
@@ -126,7 +152,9 @@ spec:
           {{- end }}
           args:
             - --storage.path=/alertmanager
+            {{- if not (hasKey .Values.extraArgs "config.file") }}
             - --config.file=/etc/alertmanager/alertmanager.yml
+            {{- end }}
             {{- if or (gt (int .Values.replicaCount) 1) (.Values.additionalPeers) }}
             - --cluster.advertise-address=[$(POD_IP)]:{{ $svcClusterPort }}
             - --cluster.listen-address=0.0.0.0:{{ $svcClusterPort }}
@@ -145,10 +173,21 @@ spec:
             {{- range $key, $value := .Values.extraArgs }}
             - --{{ $key }}={{ $value }}
             {{- end }}
+            {{- if .Values.baseURL }}
+            - --web.external-url={{ .Values.baseURL }}
+            {{- end }}
           ports:
             - name: http
               containerPort: 9093
               protocol: TCP
+            {{- if or (gt (int .Values.replicaCount) 1) (.Values.additionalPeers) }}
+            - name: clusterpeer-tcp
+              containerPort: {{ $svcClusterPort }}
+              protocol: TCP
+            - name: clusterpeer-udp
+              containerPort: {{ $svcClusterPort }}
+              protocol: UDP
+            {{- end }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
@@ -156,7 +195,7 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            {{- if .Values.config }}
+            {{- if .Values.config.enabled }}
             - name: config
               mountPath: /etc/alertmanager
             {{- end }}
@@ -171,8 +210,11 @@ spec:
             {{- if .Values.extraVolumeMounts }}
             {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
             {{- end }}
+        {{- with .Values.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       volumes:
-        {{- if .Values.config }}
+        {{- if .Values.config.enabled }}
         - name: config
           configMap:
             name: {{ include "alertmanager.fullname" . }}
@@ -188,6 +230,9 @@ spec:
         {{- if .Values.extraVolumes }}
         {{- toYaml .Values.extraVolumes | nindent 8 }}
         {{- end }}
+      {{- if .Values.extraPodConfigs }}
+      {{- toYaml .Values.extraPodConfigs | nindent 6 }}
+      {{- end }}
   {{- if .Values.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:

@@ -1,14 +1,22 @@
+# yaml-language-server: $schema=values.schema.json
 # Default values for alertmanager.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
 replicaCount: 1
 
+# Number of old history to retain to allow rollback
+# Default Kubernetes value is set to 10
+revisionHistoryLimit: 10
+
 image:
   repository: quay.io/prometheus/alertmanager
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
+
+# Full external URL where alertmanager is reachable, used for backlinks.
+baseURL: ""
 
 extraArgs: {}
 
@@ -24,6 +32,8 @@ extraSecretMounts: []
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+## namespaceOverride overrides the namespace which the resources will be deployed in
+namespaceOverride: ""
 
 automountServiceAccountToken: true
 
@@ -34,10 +44,13 @@ serviceAccount:
   annotations: {}
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
-  name:
+  name: ""
 
 # Sets priorityClassName in alertmanager pod
 priorityClassName: ""
+
+# Sets schedulerName in alertmanager pod
+schedulerName: ""
 
 podSecurityContext:
   fsGroup: 65534
@@ -51,7 +64,7 @@ dnsConfig: {}
   #   - name: ndots
   #     value: "2"
   #   - name: edns0
-hostAliases: {}
+hostAliases: []
   # - ip: "127.0.0.1"
   #   hostnames:
   #   - "foo.local"
@@ -75,6 +88,11 @@ additionalPeers: []
 ##
 extraInitContainers: []
 
+## Additional containers to add to the stateful set. This will allow to setup sidecarContainers like a proxy to integrate
+## alertmanager with an external tool like teams that has not direct integration.
+##
+extraContainers: []
+
 livenessProbe:
   httpGet:
     path: /
@@ -87,6 +105,7 @@ readinessProbe:
 
 service:
   annotations: {}
+  labels: {}
   type: ClusterIP
   port: 9093
   clusterPort: 9094
@@ -95,9 +114,37 @@ service:
   # if you want to force a specific nodePort. Must be use with service.type=NodePort
   # nodePort:
 
+  # Optionally specify extra list of additional ports exposed on both services
+  extraPorts: []
+
+  # ip dual stack
+  ipDualStack:
+    enabled: false
+    ipFamilies: ["IPv6", "IPv4"]
+    ipFamilyPolicy: "PreferDualStack"
+
+# Configuration for creating a separate Service for each statefulset Alertmanager replica
+#
+servicePerReplica:
+  enabled: false
+  annotations: {}
+
+  # Loadbalancer source IP ranges
+  # Only used if servicePerReplica.type is "LoadBalancer"
+  loadBalancerSourceRanges: []
+
+  # Denotes if this Service desires to route external traffic to node-local or cluster-wide endpoints
+  #
+  externalTrafficPolicy: Cluster
+
+  # Service type
+  #
+  type: ClusterIP
+
 ingress:
   enabled: false
   className: ""
+  labels: {}
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
@@ -110,6 +157,50 @@ ingress:
   #  - secretName: chart-example-tls
   #    hosts:
   #      - alertmanager.domain.com
+
+# Configuration for creating an Ingress that will map to each Alertmanager replica service
+# alertmanager.servicePerReplica must be enabled
+#
+ingressPerReplica:
+  enabled: false
+
+  # className for the ingresses
+  #
+  className: ""
+
+  annotations: {}
+  labels: {}
+
+  # Final form of the hostname for each per replica ingress is
+  # {{ ingressPerReplica.hostPrefix }}-{{ $replicaNumber }}.{{ ingressPerReplica.hostDomain }}
+  #
+  # Prefix for the per replica ingress that will have `-$replicaNumber`
+  # appended to the end
+  hostPrefix: "alertmanager"
+  # Domain that will be used for the per replica ingress
+  hostDomain: "domain.com"
+
+  # Paths to use for ingress rules
+  #
+  paths:
+    - /
+
+  # PathType for ingress rules
+  #
+  pathType: ImplementationSpecific
+
+  # Secret name containing the TLS certificate for alertmanager per replica ingress
+  # Secret must be manually created in the namespace
+  tlsSecretName: ""
+
+  # Separated secret for each per replica Ingress. Can be used together with cert-manager
+  #
+  tlsSecretPerReplica:
+    enabled: false
+    # Final form of the secret for each per replica ingress is
+    # {{ tlsSecretPerReplica.prefix }}-{{ $replicaNumber }}
+    #
+    prefix: "alertmanager"
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
@@ -154,6 +245,13 @@ topologySpreadConstraints: []
 statefulSet:
   annotations: {}
 
+## Minimum number of seconds for which a newly created pod should be ready without any of its container crashing for it to
+## be considered available. Defaults to 0 (pod will be considered available as soon as it is ready).
+## This is an alpha field from kubernetes 1.22 until 1.24 which requires enabling the StatefulSetMinReadySeconds
+## feature gate.
+## Ref: https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#minimum-ready-seconds
+minReadySeconds: 0
+
 podAnnotations: {}
 podLabels: {}
 
@@ -189,6 +287,7 @@ configAnnotations: {}
   # slack_api_url: '${vault:secret/data/slack-hook-alerts#URL}'
 
 config:
+  enabled: true
   global: {}
     # slack_api_url: ''
 
@@ -208,7 +307,7 @@ config:
     repeat_interval: 3h
 
 ## Monitors ConfigMap changes and POSTs to a URL
-## Ref: https://github.com/jimmidyson/configmap-reload
+## Ref: https://github.com/prometheus-operator/prometheus-operator/tree/main/cmd/prometheus-config-reloader
 ##
 configmapReload:
   ## If false, the configmap-reload container will not be deployed
@@ -222,8 +321,8 @@ configmapReload:
   ## configmap-reload container image
   ##
   image:
-    repository: jimmidyson/configmap-reload
-    tag: v0.8.0
+    repository: quay.io/prometheus-operator/prometheus-config-reloader
+    tag: v0.81.0
     pullPolicy: IfNotPresent
 
   # containerPort: 9533
@@ -232,6 +331,28 @@ configmapReload:
   ## Ref: http://kubernetes.io/docs/user-guide/compute-resources/
   ##
   resources: {}
+
+  extraArgs: {}
+
+  ## Optionally specify extra list of additional volumeMounts
+  extraVolumeMounts: []
+    # - name: extras
+    #   mountPath: /usr/share/extras
+    #   readOnly: true
+
+  ## Optionally specify extra environment variables to add to alertmanager container
+  extraEnv: []
+    # - name: FOO
+    #   value: BAR
+
+  securityContext: {}
+    # capabilities:
+    #   drop:
+    #   - ALL
+    # readOnlyRootFilesystem: true
+    # runAsUser: 65534
+    # runAsNonRoot: true
+    # runAsGroup: 65534
 
 templates: {}
 #   alertmanager.tmpl: |-
@@ -257,3 +378,28 @@ testFramework:
   annotations:
     "helm.sh/hook": test-success
     # "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+
+# --- Vertical Pod Autoscaler
+verticalPodAutoscaler:
+  # -- Use VPA for alertmanager
+  enabled: false
+  # recommenders:
+  #   - name: 'alternative'
+  # updatePolicy:
+  #   updateMode: "Auto"
+  #   minReplicas: 1
+  # resourcePolicy:
+  #   containerPolicies:
+  #     - containerName: '*'
+  #       minAllowed:
+  #         cpu: 100m
+  #         memory: 128Mi
+  #       maxAllowed:
+  #         cpu: 1
+  #         memory: 500Mi
+  #       controlledResources: ["cpu", "memory"]
+
+# --- Extra Pod Configs
+extraPodConfigs: {}
+  # dnsPolicy: ClusterFirstWithHostNet
+  # hostNetwork: true

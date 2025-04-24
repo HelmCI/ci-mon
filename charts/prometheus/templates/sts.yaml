@@ -14,11 +14,17 @@ metadata:
   name: {{ template "prometheus.server.fullname" . }}
   namespace: {{ include "prometheus.namespace" . }}
 spec:
+  {{- if semverCompare ">= 1.27.x" (include "prometheus.kubeVersion" .) }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: {{ ternary "Delete" "Retain" .Values.server.statefulSet.pvcDeleteOnStsDelete }}
+    whenScaled: {{ ternary "Delete" "Retain" .Values.server.statefulSet.pvcDeleteOnStsScale }}
+  {{- end }}
   serviceName: {{ template "prometheus.server.fullname" . }}-headless
   selector:
     matchLabels:
       {{- include "prometheus.server.matchLabels" . | nindent 6 }}
   replicas: {{ .Values.server.replicaCount }}
+  revisionHistoryLimit: {{ .Values.server.revisionHistoryLimit }}
   podManagementPolicy: {{ .Values.server.statefulSet.podManagementPolicy }}
   template:
     metadata:
@@ -35,6 +41,9 @@ spec:
 {{- if .Values.server.priorityClassName }}
       priorityClassName: "{{ .Values.server.priorityClassName }}"
 {{- end }}
+{{- if .Values.server.runtimeClassName }}
+      runtimeClassName: "{{ .Values.server.runtimeClassName }}"
+{{- end }}
 {{- if .Values.server.schedulerName }}
       schedulerName: "{{ .Values.server.schedulerName }}"
 {{- end }}
@@ -46,6 +55,9 @@ spec:
       {{- end }}
 {{- end }}
       serviceAccountName: {{ template "prometheus.serviceAccountName.server" . }}
+{{- if kindIs "bool" .Values.server.automountServiceAccountToken }}
+      automountServiceAccountToken: {{ .Values.server.automountServiceAccountToken }}
+{{- end }}
       {{- if .Values.server.extraInitContainers }}
       initContainers:
 {{ toYaml .Values.server.extraInitContainers | indent 8 }}
@@ -54,9 +66,9 @@ spec:
         {{- if .Values.configmapReload.prometheus.enabled }}
         - name: {{ template "prometheus.name" . }}-{{ .Values.server.name }}-{{ .Values.configmapReload.prometheus.name }}
           {{- if .Values.configmapReload.prometheus.image.digest }}
-          image: "{{ .Values.configmapReload.prometheus.image.repository }}@{{ .Values.configmapReload.prometheus.image.digest }}"
+          image: "{{ tpl .Values.configmapReload.prometheus.image.repository . }}@{{ tpl .Values.configmapReload.prometheus.image.digest . }}"
           {{- else }}
-          image: "{{ .Values.configmapReload.prometheus.image.repository }}:{{ .Values.configmapReload.prometheus.image.tag }}"
+          image: "{{ tpl .Values.configmapReload.prometheus.image.repository . }}:{{ tpl .Values.configmapReload.prometheus.image.tag . }}"
           {{- end }}
           imagePullPolicy: "{{ .Values.configmapReload.prometheus.image.pullPolicy }}"
           {{- with .Values.configmapReload.prometheus.containerSecurityContext }}
@@ -69,9 +81,16 @@ spec:
           {{- with .Values.server.prefixURL }}
           {{- $default_url = printf "http://127.0.0.1:9090%s/-/reload" . }}
           {{- end }}
+          {{- if .Values.configmapReload.prometheus.containerPort }}
+            - --listen-address=0.0.0.0:{{ .Values.configmapReload.prometheus.containerPort }}
+          {{- end }}
             - --reload-url={{ default $default_url .Values.configmapReload.reloadUrl }}
           {{- range $key, $value := .Values.configmapReload.prometheus.extraArgs }}
+            {{- if $value }}
             - --{{ $key }}={{ $value }}
+            {{- else }}
+            - --{{ $key }}
+            {{- end }}
           {{- end }}
           {{- range .Values.configmapReload.prometheus.extraVolumeDirs }}
             - --watched-dir={{ . }}
@@ -83,13 +102,34 @@ spec:
           {{- if .Values.configmapReload.prometheus.containerPort }}
           ports:
             - containerPort: {{ .Values.configmapReload.prometheus.containerPort }}
+              {{- if .Values.configmapReload.prometheus.containerPortName }}
+              name: {{ .Values.configmapReload.prometheus.containerPortName }}
+              {{- end }}
           {{- end }}
+          {{- with .Values.configmapReload.prometheus.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.configmapReload.prometheus.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.configmapReload.prometheus.startupProbe }}
+          {{- $startupProbe := omit .Values.configmapReload.prometheus.startupProbe "enabled" }}
+          startupProbe:
+            {{- toYaml $startupProbe | nindent 12 }}
+          {{- end }}
+          {{- with .Values.configmapReload.prometheus.resources }}
           resources:
-{{ toYaml .Values.configmapReload.prometheus.resources | indent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: config-volume
               mountPath: /etc/config
               readOnly: true
+          {{- with .Values.configmapReload.prometheus.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- range .Values.configmapReload.prometheus.extraConfigmapMounts }}
             - name: {{ $.Values.configmapReload.prometheus.name }}-{{ .name }}
               mountPath: {{ .mountPath }}
@@ -100,9 +140,9 @@ spec:
 
         - name: {{ template "prometheus.name" . }}-{{ .Values.server.name }}
           {{- if .Values.server.image.digest }}
-          image: "{{ .Values.server.image.repository }}@{{ .Values.server.image.digest }}"
+          image: "{{ tpl .Values.server.image.repository . }}@{{ tpl .Values.server.image.digest . }}"
           {{- else }}
-          image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag | default .Chart.AppVersion }}"
+          image: "{{ tpl .Values.server.image.repository . }}:{{ tpl .Values.server.image.tag . | default .Chart.AppVersion }}"
           {{- end }}
           imagePullPolicy: "{{ .Values.server.image.pullPolicy }}"
           {{- with .Values.server.command }}
@@ -123,6 +163,9 @@ spec:
           {{- if .Values.server.retention }}
             - --storage.tsdb.retention.time={{ .Values.server.retention }}
           {{- end }}
+          {{- if .Values.server.retentionSize }}
+            - --storage.tsdb.retention.size={{ .Values.server.retentionSize }}
+          {{- end }}
             - --config.file={{ .Values.server.configPath }}
           {{- if .Values.server.storagePath }}
             - --storage.tsdb.path={{ .Values.server.storagePath }}
@@ -135,7 +178,11 @@ spec:
             - --{{ . }}
           {{- end }}
           {{- range $key, $value := .Values.server.extraArgs }}
+            {{- if $value }}
             - --{{ $key }}={{ $value }}
+            {{- else }}
+            - --{{ $key }}
+            {{- end }}
           {{- end }}
           {{- if .Values.server.baseURL }}
             - --web.external-url={{ .Values.server.baseURL }}
@@ -143,6 +190,9 @@ spec:
         {{- end }}
           ports:
             - containerPort: 9090
+          {{- if .Values.server.portName }}
+              name: {{ .Values.server.portName }}
+          {{- end }}
           {{- if .Values.server.hostPort }}
               hostPort: {{ .Values.server.hostPort }}
           {{- end }}
@@ -206,8 +256,10 @@ spec:
             periodSeconds: {{ .Values.server.startupProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.server.startupProbe.timeoutSeconds }}
           {{- end }}
+          {{- with .Values.server.resources }}
           resources:
-{{ toYaml .Values.server.resources | indent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           volumeMounts:
             - name: config-volume
               mountPath: /etc/config
@@ -277,10 +329,29 @@ spec:
       tolerations:
 {{ toYaml .Values.server.tolerations | indent 8 }}
     {{- end }}
-    {{- if .Values.server.affinity }}
+    {{- if or .Values.server.affinity .Values.server.podAntiAffinity }}
       affinity:
-{{ toYaml .Values.server.affinity | indent 8 }}
     {{- end }}
+      {{- with .Values.server.affinity }}
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if eq .Values.server.podAntiAffinity "hard" }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: {{ .Values.server.podAntiAffinityTopologyKey }}
+              labelSelector:
+                matchExpressions:
+                  - {key: app.kubernetes.io/name, operator: In, values: [{{ template "prometheus.name" . }}]}
+      {{- else if eq .Values.server.podAntiAffinity "soft" }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: {{ .Values.server.podAntiAffinityTopologyKey }}
+                labelSelector:
+                  matchExpressions:
+                    - {key: app.kubernetes.io/name, operator: In, values: [{{ template "prometheus.name" . }}]}
+      {{- end }}
     {{- with .Values.server.topologySpreadConstraints }}
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
@@ -331,7 +402,9 @@ spec:
 {{- end }}
 {{- if .Values.server.persistentVolume.enabled }}
   volumeClaimTemplates:
-    - metadata:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
         name: {{ .Values.server.persistentVolume.statefulSetNameOverride | default "storage-volume" }}
         {{- if .Values.server.persistentVolume.annotations }}
         annotations:

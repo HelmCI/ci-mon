@@ -8,8 +8,11 @@ nameOverride: ""
 # Provide a name to substitute for the full names of resources
 fullnameOverride: ""
 
+# Provide a namespace to substitude for the namespace on resources
+namespaceOverride: ""
+
 image:
-  repository: prom/pushgateway
+  repository: quay.io/prometheus/pushgateway
   # if not set appVersion field from Chart.yaml is used
   tag: ""
   pullPolicy: IfNotPresent
@@ -22,12 +25,21 @@ service:
   port: 9091
   targetPort: 9091
   # nodePort: 32100
+  portName: http
 
   # Optional - Can be used for headless if value is "None"
   clusterIP: ""
 
+  ipDualStack:
+    enabled: false
+    ipFamilies: ["IPv6", "IPv4"]
+    ipFamilyPolicy: "PreferDualStack"
+
   loadBalancerIP: ""
   loadBalancerSourceRanges: []
+
+# Whether to automatically mount a service account token into the pod
+automountServiceAccountToken: true
 
 # Optional pod annotations
 podAnnotations: {}
@@ -96,11 +108,19 @@ resources: {}
   #   cpu: 100m
   #   memory: 30Mi
 
+# -- Sets web configuration
+# To enable basic authentication, provide basicAuthUsers as a map
+# If serviceMonitor.enabled is set, a secret with these credentials will be created
+# and configured in serviceMonitor. serviceMonitor.basicAuth overrides this secret.
+webConfiguration: {}
+  # basicAuthUsers:
+  #   username: password
+
 liveness:
   enabled: true
   probe:
     httpGet:
-      path: /-/ready
+      path: /-/healthy
       port: 9091
     initialDelaySeconds: 10
     timeoutSeconds: 10
@@ -161,7 +181,7 @@ ingress:
   #     hosts:
   #       - pushgateway.domain.com
 
-tolerations: {}
+tolerations: []
   # - effect: NoSchedule
   #   operator: Exists
 
@@ -171,6 +191,16 @@ tolerations: {}
 nodeSelector: {}
 
 replicaCount: 1
+
+hostAliases: []
+  # - ip: "127.0.0.1"
+  #   hostnames:
+  #   - "foo.local"
+  #   - "bar.local"
+  # - ip: "10.1.2.3"
+  #   hostnames:
+  #   - "foo.remote"
+  #   - "bar.remote"
 
 ## When running more than one replica alongside with persistence, different volumes are needed
 ## per replica, since sharing a `persistence.file` across replicas does not keep metrics synced.
@@ -197,6 +227,18 @@ containerSecurityContext: {}
 ## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
 affinity: {}
 
+## Pod anti-affinity can prevent the scheduler from placing pushgateway replicas on the same node.
+## The value "soft" means that the scheduler should *prefer* to not schedule two replica pods onto the same node but no guarantee is provided.
+## The value "hard" means that the scheduler is *required* to not schedule two replica pods onto the same node.
+## The default value "" will disable pod anti-affinity so that no anti-affinity rules will be configured (unless set in `affinity`).
+##
+podAntiAffinity: ""
+
+## If anti-affinity is enabled sets the topologyKey to use for anti-affinity.
+## This can be changed to, for example, failure-domain.beta.kubernetes.io/zone
+##
+podAntiAffinityTopologyKey: kubernetes.io/hostname
+
 ## Topology spread constraints for pods
 ## Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
 topologySpreadConstraints: []
@@ -206,19 +248,30 @@ serviceMonitor:
   enabled: false
   namespace: monitoring
 
+  # telemetryPath: HTTP resource path from which to fetch metrics.
+  # Telemetry path, default /metrics, has to be prefixed accordingly if pushgateway sets a route prefix at start-up.
+  #
+  telemetryPath: "/metrics"
+
   # Fallback to the prometheus default unless specified
-  # interval: 10s
+  interval: ""
 
   ## scheme: HTTP scheme to use for scraping. Can be used with `tlsConfig` for example if using istio mTLS.
-  # scheme: ""
+  scheme: ""
+
+  ## Basic authentication
+  basicAuth: {}
+
+  ## Bearer token file
+  bearerTokenFile: ""
 
   ## tlsConfig: TLS configuration to use when scraping the endpoint. For example if using istio mTLS.
   ## Of type: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#tlsconfig
-  # tlsConfig: {}
+  tlsConfig: {}
 
   # bearerTokenFile:
   # Fallback to the prometheus default unless specified
-  # scrapeTimeout: 30s
+  scrapeTimeout: ""
 
   ## Used to pass Labels that are used by the Prometheus installed in your cluster to select Service Monitors to work with
   ## ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#prometheusspec
@@ -320,3 +373,13 @@ networkPolicy: {}
   #   - podSelector:
   #       matchLabels:
   #         app: myapp
+
+# Array of extra K8s objects to deploy (evaluated as a template)
+# The value can hold an array of strings as well as objects
+extraManifests: []
+
+# Lifecycle hooks configuration
+lifecycle: {}
+#  preStop:
+#    exec:
+#      command: ["/bin/sh", "-c", "sleep 30"]
