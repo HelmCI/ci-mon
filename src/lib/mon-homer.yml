@@ -29,8 +29,14 @@ namespace:
             #   repo: grafana/grafana-oss
             env:
               GF_SECURITY_ADMIN_USER: admin
+              # GF_INSTALL_PLUGINS: http://minio.db:9000/file/grafana/plugins/qxip-flow-panel-10.0.10.zip;qxip-flow-panel
+              # GF_INSTALL_PLUGINS: # fix for offline
+              # GF_UPDATE_CHECKER_ENABLED: false # TODO: not work
             secret:
               GF_SECURITY_ADMIN_PASSWORD: ADMIN_PASSWORD
+            # volumes:
+            #   ./grafana/plugins/qxip-flow-panel: # TODO: is invalid: data: Too long: must have at most 1048576 bytes
+            #     to: /var/lib/grafana/plugins/qxip-flow-panel
             ports:
               - port: 3000
                 targetPort: 3000
