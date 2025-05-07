@@ -46,6 +46,8 @@ namespace:
           tags: *_mon
       pyroscope:
         pyroscope: *manual
+      qryn-helm:
+        qryn: *manual
       # loki:
       #   loki:
       # promtail:

@@ -1,0 +1,158 @@
+kubernetesClusterDomain: cluster.local
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: qxip/qryn
+  tag: ""
+
+# imagePullSecrets: 
+#   nameOverride: ""
+
+imageCredentials: {}
+#   registry: registry.cluster.local
+#   username: someone
+#   password: sillyness
+#   email: someone@host.com
+
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 3100
+
+livenessProbe: 
+  httpGet: 
+    path: /metrics 
+    port: http 
+  initialDelaySeconds: 10 # seconds
+  periodSeconds: 10 # seconds
+readinessProbe: {}
+
+podAnnotations: {}
+podLabels: {}
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+serviceMonitor:
+  enabled: false
+  # portName: http
+  # port: 3100
+  # interval: "30s"
+  # scheme: "http"
+  # path: /metrics
+  # type: ClusterIP
+  # labels: {}
+  # tlsConfig: {}
+  # metricRelabelings: []
+  # relabelings: []
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: false
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podSecurityContext: {}
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    #   kubernetes.io/ingress.class: nginx
+    #   nginx.ingress.kubernetes.io/force-ssl-redirect: 'true'
+    #   nginx.ingress.kubernetes.io/auth-type: basic
+    #   nginx.ingress.kubernetes.io/auth-secret: basic-auth
+    #   nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required'
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+basicAuthPass: ""
+  # needs APR1-MD5 password 
+  # example user test, pass test 
+  # "test:$apr1$vbY9pP6j$GruYGP/AoYR1RPQN8KshE."
+env:
+  CLICKHOUSE_SERVER: "localhost"
+  CLICKHOUSE_PORT: "8123"
+  CLICKHOUSE_DB: "qryn"
+  CLICKHOUSE_AUTH: "default:"
+  # CLICKHOUSE_PROTO: "http"
+  # CLICKHOUSE_TIMEFIELD: "record_datetime"
+  # CLUSTER_NAME: ""
+  # BULK_MAXAGE: "2000"
+  # BULK_MAXSIZE: "5000"
+  # BULK_MAXCACHE: "50000"
+  # LABELS_DAYS: "7"
+  # SAMPLES_DAYS: "7"
+  # HOST: "0.0.0.0"
+  # PORT: "3100"
+  # QRYN_LOGIN: ""
+  # QRYN_PASSWORD: ""
+  # READONLY: "false"
+  # OMIT_CREATE_TABLES: "false"
+  # FASTIFY_BODYLIMIT: "5242880"
+  # FASTIFY_REQUESTTIMEOUT: "0"
+  # FASTIFY_MAXREQUESTS: "0"
+  # FASTIFY_METRICS: "false"
+  # ADVANCED_PROMETHEUS_MAX_SAMPLES: "5000000"
+  # CORS_ALLOW_ORIGIN: 	"*"
+  # TEMPO_SPAN: "24"
+  # TEMPO_TAGTRACE: "false"
+  # DEBUG: "false"
+  # LOG_LEVEL: "info"
+  # HASH: "xxhash64"
+  # ALERTMAN_URL: "false"
+  # ADVANCED_SAMPLES_ORDERING: "timestamp_ns"
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
