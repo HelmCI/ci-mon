@@ -43,6 +43,14 @@ namespace:
                 nodePort: 30000
         qryn:
           v: 3.2.39
+          dep:
+            - clickhouse@db
+          store:
+            env:
+              CLICKHOUSE_SERVER: clickhouse.db
+            secret:
+              CLICKHOUSE_AUTH: clickhouse
+        clickhouse-server: *homer_add
         heplify-server:
           v: 1.59.9
         hepgen:     *homer_test
