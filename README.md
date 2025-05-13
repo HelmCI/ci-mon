@@ -33,8 +33,8 @@ make test_up_homer7
 - [jaeger](src/lib/jaeger/jaeger.md)
 - [pyroscope](src/lib/pyroscope/pyroscope.md)
 - [sentry](src/lib/sentry/sentry.md)
-- [homer](src/dc/homer/README.md)
 - [homer7](src/dc/homer7/homer7.md)
+- [homer10](src/dc/homer/README.md) -> [lib](src/lib/mon-homer.md)
 
 ## values template
 
