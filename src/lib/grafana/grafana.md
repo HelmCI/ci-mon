@@ -4,3 +4,9 @@
 - [chart](../../../charts/grafana/README.md)
 - [values template](grafana.tpl)
 - http://localhost/mon/
+
+## update dashboards
+
+```sh
+make grafana
+```

@@ -1,13 +1,45 @@
 # file://./grafana.md
 {{- $s := .Release.Store }}
 {{- $r := $s.registry }}
-
 {{- $host := or $s.host  $s.mon.host }}
 {{- $_     := print $s.__ "/grafana/" }}
 {{- $oidc  :=  $s.oidc }}
 {{- $_oidc := $s.oidc.grafana }}
 {{- $oidc_url := print (or $_oidc.url $oidc.url)  "/realms/" (or $_oidc.realm $oidc.realm) "/protocol/openid-connect" }}
 {{- $sub_path := "mon" }}
+
+{{- $init := or (getenv "I") $s.init }}
+{{- $f := "file://./../../../../" }}
+{{- $path := "/grafana/dashboards/" }}
+{{- $files := dict }}
+{{- range $s._modules | append "" }}
+  {{- $_ := filepath.Join . $s._ $path }}
+  {{- if file.Exists $_  }}
+    {{- range file.ReadDir $_ }}
+      {{- $folder := . }}
+      {{- with filepath.Join $_ . }}
+      {{- $_ := . }}
+      {{- if file.IsDir . }}
+        {{- range file.ReadDir . }}
+          {{- $name := filepath.Base . | strings.TrimSuffix (filepath.Ext .) }}
+          {{- if filepath.Ext .  | eq ".json" }}
+            {{- with filepath.Join $_ . }}
+              {{- if file.Exists .  }} 
+# {{ $f }}{{ . }}
+                {{- $files =  readFile . | dict $name | dict $folder | merge $files }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{/* podAnnotations: # debug
+  {{- range $k, $v := $files }}
+  {{ $k }}: {{ $v | keys }}
+  {{- end }} */}}
 
 {{- with $r.hostProxy }}
 global:
@@ -130,35 +162,24 @@ dashboardProviders:
       folder: Kubernetes
       options:
         path: /var/lib/grafana/dashboards/kubernetes
-
 dashboards:
+  {{- if not $init }}
+  {{- range $k, $v := $files }}
+  {{ $k }}:
+    {{- range $k, $v := $v }}
+    {{ $k }}:
+      json: |
+{{ $v | indent 8 }}
+    {{- end }}
+  {{- end }}
+  {{- else }}
   infra:
-  {{- if $s.enableDownload }}
     prometheus:
       gnetId: 3662
       datasource: Prometheus
     CoreDNS:
       gnetId: 14981
       datasource: Prometheus
-  {{- end}}
-
-    PostgreSQL:
-      json: |
-{{ print $_ "PostgreSQL.json" | readFile | indent 8 }}
-
-    nginx-ingress-controller:
-      json: |
-{{ print $_ "nginx-ingress-controller.json" | readFile | indent 8 }}
-
-    request-handling-performance:
-      json: |
-{{ print $_ "request-handling-performance.json" | readFile | indent 8 }}
-
-    NATS:
-      json: |
-{{ print $_ "nats-server-dashboard_rev2.json" | readFile | indent 8 }}
-
-  {{- if $s.enableDownload }}
   node-exporter:
     node-exporter-11074:
       gnetId: 11074
@@ -169,7 +190,6 @@ dashboards:
     node-exporter-full:
       gnetId: 12486 # 1860
       datasource: Prometheus
-
   kubernetes:
     k8s-views-global:
       url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/master/dashboards/k8s-views-global.json
