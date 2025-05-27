@@ -40,3 +40,15 @@ alertmanager:
 extraScrapeConfigs: |
 {{ toYAML . | indent 2 }}
 {{- end }}
+
+{{- define "sip" -}}
+- job_name: asterisk
+  fallback_scrape_protocol: PrometheusText0.0.4
+  static_configs:
+    - targets:
+      - {{ . }}:8088
+{{- end }}
+{{- with $s.sip.host }}
+extraScrapeConfigs: |
+{{ tmpl.Exec "sip" . | indent 2 }}
+{{- end }}
