@@ -13,3 +13,19 @@
 - 'http://localhost:55381/api/v1/status/tsdb'
 - 'http://localhost:55381/api/v1/label/app_kubernetes_io_instance/values'
 - 'http://localhost:55381/api/v1/label/service/values'
+
+## SIP example
+
+```yaml
+  mon:
+    chart:
+      prometheus:
+        prometheus:
+          store: 
+            extraScrapeConfigs:
+              - job_name: asterisk
+                fallback_scrape_protocol: PrometheusText0.0.4
+                static_configs:
+                  - targets:
+                    - 10.10.10.1:8088
+```

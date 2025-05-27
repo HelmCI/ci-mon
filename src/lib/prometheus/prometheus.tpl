@@ -1,11 +1,11 @@
 # file://./prometheus.md
 {{- $s := .Release.Store }}
-{{- $r    := $s.registry }}
+{{- $r := $s.registry }}
 
 {{- $repo := print $r.hostProxy "/" }}
-{{- $k8s   := print $repo $r.proxy.registry_k8s_io }}
-{{- $quay  := print $repo $r.proxy.quay_io }}
-{{/* {{- $quay  := print $repo $r.proxy.quay_io "/prometheus" }} */}}
+{{- $k8s  := print $repo $r.proxy.registry_k8s_io }}
+{{- $quay := print $repo $r.proxy.quay_io }}
+{{/* {{- $quay := print $repo $r.proxy.quay_io "/prometheus" }} */}}
 
 {{- with $r.hostProxy }}
 server:
@@ -35,3 +35,8 @@ prometheus-pushgateway:
   enabled: false
 alertmanager:
   enabled: false
+
+{{- with $s.extraScrapeConfigs }}
+extraScrapeConfigs: |
+{{ toYAML . | indent 2 }}
+{{- end }}
