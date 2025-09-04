@@ -43,14 +43,15 @@ user:
 {{- if not $init }}
   create: false
 asHook: false
+{{- end }}
+
 hooks:
-  enabled: false
+  enabled: {{ not (not $init) }}
   {{- with $r.hostProxy }}
   dbCheck:
     image:
       repository: {{ $dhub }}/subfuzion/netcat
   {{- end }}
-{{- end }}
 
 sentry:
   worker:
