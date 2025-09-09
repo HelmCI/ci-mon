@@ -51,4 +51,7 @@ extraScrapeConfigs: |
 {{- with $s.sip.host }}
 extraScrapeConfigs: |
 {{ tmpl.Exec "sip" . | indent 2 }}
+  {{- range $s.sip.hosts }}
+        - {{ . }}:8088
+  {{- end }}
 {{- end }}
