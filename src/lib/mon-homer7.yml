@@ -30,9 +30,13 @@ namespace:
           v: latest@sha256:e34fa9a3461e6cad693a2503fb569bff952f91a4fc49e8fc0f0d5cf4c10e850b
         homer-server:
           dep: *dep
+          deps:
+            - _metrics
           store:
             secret:
               HEPLIFYSERVER_DBPASS: *DB_PASS
+            metrics:
+              port: 9096
             # env:
             #   HEPLIFYSERVER_DBADDR: sql-homer:5432
             #   # HEPLIFYSERVER_DBUSER: *DB_USER
